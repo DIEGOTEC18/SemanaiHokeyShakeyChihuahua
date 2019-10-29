@@ -30,8 +30,10 @@ class Player:
         self.my_opponent_pos = {}
         self.my_goal_offset = 1.3
 
-        # AI Modes: Attack (0) Defend (1) Confuse (3)
-        self.my_current_mode = 1
+        # AI Modes: Attack (0) Defend (1) Evade (2)
+        self.my_current_mode = 0
+
+        self.elapsed_game_tiks = 0
 
     def next_move(self, current_state):
         """ Function that computes the next move of your paddle
@@ -42,6 +44,12 @@ class Player:
         """
 
         # Insert classifier here:
+
+        self.elapsed_game_tiks += 1
+
+        #print(self.elapsed_game_tiks)
+
+        self.classify(current_state, self.future_size)
 
         # update my paddle pos
         # I need to do this because GameCore moves my paddle randomly
@@ -62,7 +70,7 @@ class Player:
 
         # Attack:
 
-        final_pos = self.attack(current_state, self.future_size)
+        final_pos = self.attack(current_state)
 
         # find if puck path is inside my interest area
         roi_radius = current_state['board_shape'][0] * current_state['goal_size'] * self.my_goal_offset
@@ -82,8 +90,12 @@ class Player:
                                     current_state['paddle_radius'])
 
             # Defend test function:
+            elif self.my_current_mode == 1:
+                target_pos = self.defend(current_state, self.future_size, final_pos)
+
+            # Evade:
             else:
-                target_pos = self.defend(current_state, self.future_size, final_pos, pt_in_roi)
+                target_pos = self.evade(current_state, final_pos, pt_in_roi)
 
             # move to target position, taking into account the max. paddle speed
             if target_pos != self.my_paddle_pos:
@@ -108,7 +120,8 @@ class Player:
         # return {'x': -12, 'y': -6543}
         return self.my_paddle_pos
 
-    def attack(self, current_state, after_time):
+    '''def attack(self, current_state, after_time):
+        
         state = copy.copy(current_state)
         max_dis = state['paddle_max_speed'] * after_time
         max_y = max_dis + self.my_opponent_pos['y']
@@ -123,20 +136,65 @@ class Player:
         else:
             # print("Abajo")
             return {'x': x_aim, 'y': state['board_shape'][0]}
+            
+        '''
+    def attack(self, current_state):
+        state = copy.copy(current_state)
+
+        length = state['board_shape'][0]
+        Tx = self.my_paddle_pos['x']
+        Tdy = length + self.my_paddle_pos['y']
+        Tuy = -self.my_paddle_pos['y']
+        self.opponent_goal_center = {'x': 0 if self.my_goal == 'right' else current_state['board_shape'][1],
+                                     'y': current_state['board_shape'][0] / 2}
+        Gy = self.opponent_goal_center['y']
+        Gx = self.opponent_goal_center['x']
+
+        # print(Gy)
+        # print(Gx)
+
+        if (self.my_opponent_pos['y'] <= length / 2):
+            # print("Abajo")
+            return {'x': ((length - Tdy) / ((Tdy - Gy) / (Tx - Gx))) + Tx, 'y': length}
+        else:
+            # print("Arriba")
+            return {'x': ((length - Tuy) / ((Tuy - Gy) / (Tx - Gx))) + Tx, 'y': 0}
 
     # Defend Function:
 
-    def defend(self, current_state, after_time, final_pos, pt_in_roi):
+    def defend(self, current_state, final_pos, pt_in_roi):
 
         offset = 1
         state = copy.copy(current_state)
         self.my_goal_offset = offset
+        rad = (state['goal_size'] * state['board_shape'][0]) / 2
+
+        ofup = state['board_shape'][0] - (state['board_shape'][0] * 0.7)
+        ofdown = state['board_shape'][0] + (state['board_shape'][0] * 0.7)
 
         if state['puck_pos']['x'] > ((state['board_shape'][1] / 6) * 4):
 
             # print("Out of our half")
             # print(state['puck_pos']['x'])
-            return {'x': 116.2, 'y': 256.0} # Optimize this position selection
+
+            if state['puck_pos']['y'] > (state['board_shape'][0] / 2) and state['puck_pos']['y'] < self.my_opponent_pos['y']:
+                # print("Defiende arriba")
+                return {'x': rad, 'y': ofup}
+
+            elif state['puck_pos']['y'] > (state['board_shape'][0] / 2) and state['puck_pos']['y'] > self.my_opponent_pos['y']:
+                # print("Defiende arriba")
+                return {'x': rad, 'y': ofup}
+
+            elif state['puck_pos']['y'] < (state['board_shape'][0] / 2) and state['puck_pos']['y'] < self.my_opponent_pos['y']:
+                # print("Defiende abajo")
+                return {'x': rad, 'y': ofdown}
+
+            elif state['puck_pos']['y'] < (state['board_shape'][0] / 2) and state['puck_pos']['y'] > self.my_opponent_pos['y']:
+                # print("Defiende abajo")
+                return {'x': rad, 'y': ofdown}
+
+            else:
+                return {'x': rad, 'y': state['board_shape'][0] / 2} # Optimize this position selection
 
         else:
 
@@ -146,6 +204,25 @@ class Player:
 
         # return {'x': state['board_shape'][1] / 5, 'y': state['board_shape'][0] / 5}
 
+    #Classifier:
+    def classify(self, current_state, after_time):
+
+        state = copy.copy(current_state)
+
+        # Protección anti-autogol:
+        if state['puck_pos']['x'] < (self.my_paddle_pos['x'] - (state['board_shape'][1] * 0.05)):
+            print("Riesgo de autogol")
+            self.my_current_mode = 2
+
+        else:
+            self.my_current_mode = 0
+
+
+    def evade(self, current_state, final_pos, pt_in_roi):
+
+        state = copy.copy(current_state)
+
+        return self.my_paddle_pos
 
 def estimate_path(current_state, after_time):
     """ Function that function estimates the next moves in a after_time window
