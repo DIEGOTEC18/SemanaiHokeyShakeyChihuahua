@@ -1,11 +1,8 @@
 """ Player module
-
 This is a template/example class for your player.
 This is the only file you should modify.
-
 The logic of your hockey robot will be implemented in this class.
 Please implement the interface next_move().
-
 The only restrictions here are:
  - to implement a class constructor with the args: paddle_pos, goal_side
  - set self.my_display_name with your team's name, max. 15 characters
@@ -16,11 +13,12 @@ The only restrictions here are:
 import copy
 import utils
 
+
 class Player:
     def __init__(self, paddle_pos, goal_side):
 
         # set your team's name, max. 15 chars
-        self.my_display_name = "DREAM TEAM"
+        self.my_display_name = "ShakeyChihuahua"
 
         # these belong to my solution,
         # you may erase or change them in yours
@@ -29,62 +27,64 @@ class Player:
         self.my_goal_center = {}
         self.opponent_goal_center = {}
         self.my_paddle_pos = paddle_pos
-        self.my_opponent_pos= {}
+        self.my_opponent_pos = {}
+        self.my_goal_offset = 1.3
 
-    
+        # AI Modes: Attack (0) Defend (1) Confuse (3)
+        self.my_current_mode = 1
 
     def next_move(self, current_state):
         """ Function that computes the next move of your paddle
-
         Implement your algorithm here. This will be the only function
         used by the GameCore. Be aware of abiding all the game rules.
-
         Returns:
             dict: coordinates of next position of your paddle.
-
-
-
         """
+
+        # Insert classifier here:
 
         # update my paddle pos
         # I need to do this because GameCore moves my paddle randomly
         self.my_paddle_pos = current_state['paddle1_pos'] if self.my_goal == 'left' \
-                                                              else current_state['paddle2_pos']
+            else current_state['paddle2_pos']
         self.my_opponent_pos = current_state['paddle2_pos'] if self.my_goal == 'left' \
-                                                              else current_state['paddle1_pos']
-
-
-        
+            else current_state['paddle1_pos']
 
         # estimate puck path
         path = estimate_path(current_state, self.future_size)
 
         # computing both goal centers
         self.my_goal_center = {'x': 0 if self.my_goal == 'left' else current_state['board_shape'][1],
-                               'y': current_state['board_shape'][0]/2}
+                               'y': current_state['board_shape'][0] / 2}
 
-
-        
         self.opponent_goal_center = {'x': 0 if self.my_goal == 'right' else current_state['board_shape'][1],
-                                     'y': current_state['board_shape'][0]/2}
+                                     'y': current_state['board_shape'][0] / 2}
+
+        # Attack:
 
         final_pos = self.attack(current_state, self.future_size)
 
         # find if puck path is inside my interest area
-        roi_radius = current_state['board_shape'][0] * current_state['goal_size'] * 2
+        roi_radius = current_state['board_shape'][0] * current_state['goal_size'] * self.my_goal_offset
         pt_in_roi = None
         for p in path:
             if utils.distance_between_points(p[0], self.my_goal_center) < roi_radius:
                 pt_in_roi = p
                 break
 
-        
         if pt_in_roi:
-            print(final_pos)
+            # print(final_pos)
             # estimate an aiming position
-            target_pos = utils.aim(pt_in_roi[0], pt_in_roi[1],
-                                   final_pos, current_state['puck_radius'],
-                                   current_state['paddle_radius'])
+
+            if self.my_current_mode == 0:
+                target_pos = utils.aim(pt_in_roi[0], pt_in_roi[1],
+                                    final_pos, current_state['puck_radius'],
+                                    current_state['paddle_radius'])
+
+            # Defend test function:
+            else:
+                target_pos = self.defend(current_state, self.future_size, final_pos, pt_in_roi)
+
             # move to target position, taking into account the max. paddle speed
             if target_pos != self.my_paddle_pos:
                 direction_vector = {'x': target_pos['x'] - self.my_paddle_pos['x'],
@@ -102,7 +102,7 @@ class Player:
                 # check if computed new position in not inside goal area
                 # check if computed new position in inside board limits
                 if utils.is_inside_goal_area_paddle(new_paddle_pos, current_state) is False and \
-                    utils.is_out_of_boundaries_paddle(new_paddle_pos, current_state) is None:
+                        utils.is_out_of_boundaries_paddle(new_paddle_pos, current_state) is None:
                     self.my_paddle_pos = new_paddle_pos
         # time.sleep(2)
         # return {'x': -12, 'y': -6543}
@@ -110,15 +110,41 @@ class Player:
 
     def attack(self, current_state, after_time):
         state = copy.copy(current_state)
-        max_dis=state['paddle_max_speed'] * after_time
-        max_y=max_dis+self.my_opponent_pos['y'] 
-        min_y=self.my_opponent_pos['y'] -max_y
-        
-        if(min_y> state['board_shape'][0]-max_y):
-            return {'x': state['board_shape'][1]/4,'y':state['board_shape'][0]}
+        max_dis = state['paddle_max_speed'] * after_time
+        max_y = max_dis + self.my_opponent_pos['y']
+        min_y = self.my_opponent_pos['y'] - max_y
+        x_aim = (state['board_shape'][1] / 4) * 3
+
+        # print(state['puck_pos'])
+
+        if (self.my_opponent_pos['y'] > state['board_shape'][0] / 2):
+            # print("Arriba")
+            return {'x': x_aim, 'y': 0}
         else:
-            return {'x': (state['board_shape'][1]/4)*3,'y':0}
-    
+            # print("Abajo")
+            return {'x': x_aim, 'y': state['board_shape'][0]}
+
+    # Defend Function:
+
+    def defend(self, current_state, after_time, final_pos, pt_in_roi):
+
+        offset = 1
+        state = copy.copy(current_state)
+        self.my_goal_offset = offset
+
+        if state['puck_pos']['x'] > ((state['board_shape'][1] / 6) * 4):
+
+            # print("Out of our half")
+            # print(state['puck_pos']['x'])
+            return {'x': 116.2, 'y': 256.0} # Optimize this position selection
+
+        else:
+
+            return utils.aim(pt_in_roi[0], pt_in_roi[1], final_pos, state['puck_radius'], state['paddle_radius'])
+
+        # print(self.my_paddle_pos)
+
+        # return {'x': state['board_shape'][1] / 5, 'y': state['board_shape'][0] / 5}
 
 
 def estimate_path(current_state, after_time):
