@@ -31,7 +31,7 @@ class Player:
         self.my_goal_offset = 1.3
 
         # AI Modes: Attack (0) Defend (1) Evade (2)
-        self.my_current_mode = 0
+        self.my_current_mode = 1
 
         self.elapsed_game_tiks = 0
 
@@ -89,13 +89,22 @@ class Player:
                                     final_pos, current_state['puck_radius'],
                                     current_state['paddle_radius'])
 
-            # Defend test function:
+            # Defend:
             elif self.my_current_mode == 1:
-                target_pos = self.defend(current_state, self.future_size, final_pos)
+
+                if current_state['puck_pos']['x'] > ((current_state['board_shape'][1] / 6) * 4):
+
+                    target_pos = self.defend(current_state)
+
+                else:
+
+                    target_pos = utils.aim(pt_in_roi[0], pt_in_roi[1],
+                                           final_pos, current_state['puck_radius'],
+                                           current_state['paddle_radius'])
 
             # Evade:
             else:
-                target_pos = self.evade(current_state, final_pos, pt_in_roi)
+                target_pos = self.evade(current_state)
 
             # move to target position, taking into account the max. paddle speed
             if target_pos != self.my_paddle_pos:
@@ -127,9 +136,7 @@ class Player:
         max_y = max_dis + self.my_opponent_pos['y']
         min_y = self.my_opponent_pos['y'] - max_y
         x_aim = (state['board_shape'][1] / 4) * 3
-
         # print(state['puck_pos'])
-
         if (self.my_opponent_pos['y'] > state['board_shape'][0] / 2):
             # print("Arriba")
             return {'x': x_aim, 'y': 0}
@@ -162,7 +169,7 @@ class Player:
 
     # Defend Function:
 
-    def defend(self, current_state, final_pos, pt_in_roi):
+    def defend(self, current_state):
 
         offset = 1
         state = copy.copy(current_state)
@@ -172,33 +179,48 @@ class Player:
         ofup = state['board_shape'][0] - (state['board_shape'][0] * 0.7)
         ofdown = state['board_shape'][0] + (state['board_shape'][0] * 0.7)
 
-        if state['puck_pos']['x'] > ((state['board_shape'][1] / 6) * 4):
+        if state['puck_pos']['x'] < self.my_opponent_pos['x']:
 
-            # print("Out of our half")
-            # print(state['puck_pos']['x'])
+            if state['puck_pos']['y'] > (state['board_shape'][0] / 2) and state['puck_pos']['y'] < self.my_opponent_pos[
+                'y']:
+                print("Defiende arriba")
+                # print("Es en el 2 if")
 
-            if state['puck_pos']['y'] > (state['board_shape'][0] / 2) and state['puck_pos']['y'] < self.my_opponent_pos['y']:
-                # print("Defiende arriba")
                 return {'x': rad, 'y': ofup}
 
-            elif state['puck_pos']['y'] > (state['board_shape'][0] / 2) and state['puck_pos']['y'] > self.my_opponent_pos['y']:
-                # print("Defiende arriba")
+            elif state['puck_pos']['y'] > (state['board_shape'][0] / 2) and state['puck_pos']['y'] > \
+                    self.my_opponent_pos[
+                        'y']:
+                print("Defiende arriba")
+                # print("Es en el 1 elif")
+
                 return {'x': rad, 'y': ofup}
 
-            elif state['puck_pos']['y'] < (state['board_shape'][0] / 2) and state['puck_pos']['y'] < self.my_opponent_pos['y']:
-                # print("Defiende abajo")
+            elif state['puck_pos']['y'] < (state['board_shape'][0] / 2) and state['puck_pos']['y'] < \
+                    self.my_opponent_pos[
+                        'y']:
+                print("Defiende abajo")
+                # print("Es en el 2 elif")
+
                 return {'x': rad, 'y': ofdown}
 
-            elif state['puck_pos']['y'] < (state['board_shape'][0] / 2) and state['puck_pos']['y'] > self.my_opponent_pos['y']:
-                # print("Defiende abajo")
+            elif state['puck_pos']['y'] < (state['board_shape'][0] / 2) and state['puck_pos']['y'] > \
+                    self.my_opponent_pos[
+                        'y']:
+                print("Defiende abajo")
+                # print("Es en el 3 elif")
+
                 return {'x': rad, 'y': ofdown}
 
             else:
-                return {'x': rad, 'y': state['board_shape'][0] / 2} # Optimize this position selection
+
+                # print("Es en el 1 else")
+                return {'x': rad, 'y': state['board_shape'][0] / 2}
 
         else:
 
-            return utils.aim(pt_in_roi[0], pt_in_roi[1], final_pos, state['puck_radius'], state['paddle_radius'])
+            print("Está adelante el oponente")
+            return {'x': rad, 'y': state['board_shape'][0] / 2}
 
         # print(self.my_paddle_pos)
 
@@ -210,15 +232,15 @@ class Player:
         state = copy.copy(current_state)
 
         # Protección anti-autogol:
-        if state['puck_pos']['x'] < (self.my_paddle_pos['x'] - (state['board_shape'][1] * 0.05)):
+        if state['puck_pos']['x'] < (self.my_paddle_pos['x'] - (state['board_shape'][1] * 0.05)) and self.my_current_mode != 1:
             print("Riesgo de autogol")
             self.my_current_mode = 2
 
         else:
-            self.my_current_mode = 0
+            self.my_current_mode = 1
 
 
-    def evade(self, current_state, final_pos, pt_in_roi):
+    def evade(self, current_state):
 
         state = copy.copy(current_state)
 
