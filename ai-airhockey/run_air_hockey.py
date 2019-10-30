@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """ entry point module
-
 This module implements intefaces for using the ai-airhockey platform.
-
 Modify it under your own responsability, for the competition purposes only
 the original version will be used.
 """
@@ -42,7 +40,7 @@ def main(args):
     state['paddle_max_speed'] = 150
     state['goals'] = {'left': 0, 'right': 0}
     state['is_goal_move'] = None
-    epsilon = 5
+    epsilon = 1
 
     # initiallize gui core
     if 'video_file' in args:
@@ -82,7 +80,6 @@ if __name__ == '__main__':
     # Optional arguments
     parser.add_argument("-p1", "--player1", default='player_A', help="Enter Player1 file url without .py extension")
     parser.add_argument("-p2", "--player2", default='player_B', help="Enter Player2 file url without .py extension")
-    #video file -vf le especifica
     parser.add_argument("-vf", "--video_file", default=argparse.SUPPRESS, help="Enter video url to save game, use .avi extension")
     parser.add_argument("-sw", "--show_window", default=True, help="Do you want real-time visual feed?")
 

@@ -1,11 +1,8 @@
 """ Player module
-
 This is a template/example class for your player.
 This is the only file you should modify.
-
 The logic of your hockey robot will be implemented in this class.
 Please implement the interface next_move().
-
 The only restrictions here are:
  - to implement a class constructor with the args: paddle_pos, goal_side
  - set self.my_display_name with your team's name, max. 15 characters
@@ -15,6 +12,7 @@ The only restrictions here are:
 
 import copy
 import utils
+import random
 
 class Player:
     def __init__(self, paddle_pos, goal_side):
@@ -33,10 +31,8 @@ class Player:
 
     def next_move(self, current_state):
         """ Function that computes the next move of your paddle
-
         Implement your algorithm here. This will be the only function
         used by the GameCore. Be aware of abiding all the game rules.
-
         Returns:
             dict: coordinates of next position of your paddle.
         """
@@ -52,8 +48,9 @@ class Player:
         # computing both goal centers
         self.my_goal_center = {'x': 0 if self.my_goal == 'left' else current_state['board_shape'][1],
                                'y': current_state['board_shape'][0]/2}
+        y = random.uniform(140, 370)
         self.opponent_goal_center = {'x': 0 if self.my_goal == 'right' else current_state['board_shape'][1],
-                                     'y': current_state['board_shape'][0]/2}
+                                     'y': y}
 
         # find if puck path is inside my interest area
         roi_radius = current_state['board_shape'][0] * current_state['goal_size'] * 2
@@ -89,14 +86,11 @@ class Player:
                      utils.is_out_of_boundaries_paddle(new_paddle_pos, current_state) is None:
                     self.my_paddle_pos = new_paddle_pos
 
-        # time.sleep(2)
-        # return {'x': -12, 'y': -6543}
         return self.my_paddle_pos
 
 
 def estimate_path(current_state, after_time):
     """ Function that function estimates the next moves in a after_time window
-
     Returns:
         list: coordinates and speed of puck for next ticks
     """

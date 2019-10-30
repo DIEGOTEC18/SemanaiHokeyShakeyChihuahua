@@ -240,6 +240,8 @@ class Player:
             self.my_current_mode = 1
 
 
+
+    #Evade:
     def evade(self, current_state):
 
         state = copy.copy(current_state)
