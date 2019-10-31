@@ -47,6 +47,7 @@ class Player:
         self.opponent_distances_from_goal = []
         self.opponent_shots_to_goal = 0
         self.puck_last_x = 0
+        self.puck_last_y = 0
         self.puck_crossed = 0
 
     def next_move(self, current_state):
@@ -94,14 +95,14 @@ class Player:
         # Determine if the last shot was to the goal:
         if self.my_goal == 'left':
             if self.puck_last_x > current_state['puck_pos']['x'] and current_state['puck_pos']['y'] > lower_extreme and \
-                    current_state['puck_pos']['y'] < higher_extreme and current_state['puck_pos']['x'] < (current_state['board_shape'][1] / 4) and self.puck_crossed == 0:
+                    current_state['puck_pos']['y'] < higher_extreme and current_state['puck_pos']['x'] < (current_state['board_shape'][1] / 3) and self.puck_crossed == 0:
 
                 self.opponent_shots_to_goal += 1  # Its a shot to our goal
                 self.puck_crossed = 1
 
         else:
             if self.puck_last_x < current_state['puck_pos']['x'] and current_state['puck_pos']['y'] > lower_extreme and \
-                    current_state['puck_pos']['y'] < higher_extreme and current_state['puck_pos']['x'] > ((current_state['board_shape'][1] / 4) * 3) and self.puck_crossed == 0:
+                    current_state['puck_pos']['y'] < higher_extreme and current_state['puck_pos']['x'] > ((current_state['board_shape'][1] / 3) * 2) and self.puck_crossed == 0:
 
                 self.opponent_shots_to_goal += 1  # Its a shot to our goal
                 self.puck_crossed = 1
@@ -133,6 +134,8 @@ class Player:
 
         # Classify based on logs:
         self.classify(current_state, self.future_size)
+
+        self.puck_last_y = current_state['puck_pos']['y']
 
         # Attack:
 
@@ -288,10 +291,20 @@ class Player:
         ofup = (state['board_shape'][0] / 2) - (state['board_shape'][0] * 0.7)
         ofdown = (state['board_shape'][0] / 2) + (state['board_shape'][0] * 0.7)
 
+        lower_extreme = (current_state['board_shape'][0] / 2) - (
+                    (current_state['board_shape'][0] * current_state['goal_size']) / 2)
+
+        higher_extreme = (current_state['board_shape'][0] / 2) + (
+                    (current_state['board_shape'][0] * current_state['goal_size']) / 2)
+
         if (self.my_goal == "left"):
             if state['puck_pos']['x'] < self.my_opponent_pos['x']:
 
-                if state['puck_pos']['y'] > (state['board_shape'][0] / 2) and state['puck_pos']['y'] < \
+                if state['puck_pos']['y'] > lower_extreme and state['puck_pos']['y'] < higher_extreme and self.my_opponent_pos['y'] > lower_extreme and self.my_opponent_pos['y'] < higher_extreme:
+
+                    return {'x': ((state['goal_size'] * state['board_shape'][0]) / 2) + (state['board_shape'][1] * 0.05), 'y': (state['board_shape'][0] / 2)}
+
+                elif state['puck_pos']['y'] > (state['board_shape'][0] / 2) and state['puck_pos']['y'] < \
                         self.my_opponent_pos[
                             'y']:
                     # print("soy izquierdo y estoy defendiendo arriba")
@@ -336,7 +349,15 @@ class Player:
         if (self.my_goal == "right"):
             if state['puck_pos']['x'] > self.my_opponent_pos['x']:
 
-                if state['puck_pos']['y'] > (state['board_shape'][0] / 2) and state['puck_pos']['y'] < \
+                if state['puck_pos']['y'] > lower_extreme and state['puck_pos']['y'] < higher_extreme and self.my_opponent_pos['y'] > lower_extreme and self.my_opponent_pos['y'] < higher_extreme:
+
+                    print("Defiende EN MEDIO")
+
+                    return {'x': (state['board_shape'][1]) - ((state['goal_size'] * (state['board_shape'][0]) / 2) + (
+                                state['board_shape'][1] * 0.05)),
+                            'y': (state['board_shape'][0] / 2)}
+
+                elif state['puck_pos']['y'] > (state['board_shape'][0] / 2) and state['puck_pos']['y'] < \
                         self.my_opponent_pos[
                             'y']:
                     # print("soy derecha y estoy defendiendo arriba")
@@ -444,13 +465,16 @@ class Player:
                 self.my_current_mode = 2
 
         # Update tactics:
-        if self.elapsed_game_tiks % 100 == 0:
+        if self.elapsed_game_tiks % 50 == 0:
             distance_sum = 0.0
 
             for i in range(0, len(self.opponent_distances_from_goal)):
                 distance_sum += self.opponent_distances_from_goal[i]
 
             average = distance_sum / len(self.opponent_distances_from_goal)
+
+            print("Elapsed ticks:")
+            print(self.elapsed_game_tiks)
 
             print("The average is:")
             print(average)
@@ -493,8 +517,17 @@ class Player:
                 if losing:
                     print("...but we are losing")
 
-                    self.my_last_mode = self.my_current_mode
-                    self.my_current_mode = 1
+                    if self.elapsed_game_tiks % 100 == 0 and self.my_last_mode == 1:
+                        self.my_last_mode = self.my_current_mode
+                        self.my_current_mode = 0
+
+                        print("AAAAAAHHHHHHH")
+
+                    else:
+
+                        self.my_last_mode = self.my_current_mode
+                        self.my_current_mode = 1
+
 
                 else:
                     print("...but we are winning")
@@ -507,14 +540,37 @@ class Player:
 
             # Erase logs:
             self.opponent_distances_from_goal = []
-            self.opponent_shots_to_goal = 0
+
+            if self.elapsed_game_tiks % 500 == 0:
+
+                print("Goal counter reset")
+                self.opponent_shots_to_goal = 0
 
     # Evade:
     def evade(self, current_state):
 
         state = copy.copy(current_state)
 
-        return self.my_paddle_pos
+        # return self.my_paddle_pos
+
+        ''' It makes it easier for the opponent to strike.
+        if state['puck_pos']['y'] < self.puck_last_y:
+            # Va hacia arriba
+            return {'x': self.my_paddle_pos['x'], 'y': (state['board_shape'][0] / 2) + state['puck_pos']['y']}
+
+        else:
+            # Va hacia abajo
+            return {'x': self.my_paddle_pos['x'], 'y': (state['board_shape'][0] / 2) - (state['puck_pos']['y'] - (state['board_shape'][0] / 2))}
+        '''
+
+        if self.my_goal == 'left':
+
+            return {'x': ((state['goal_size'] * state['board_shape'][0]) / 2) + (state['board_shape'][1] * 0.05), 'y' : (state['board_shape'][0] / 2)}
+
+        else:
+
+            return {'x': (state['board_shape'][1]) - ((state['goal_size'] * (state['board_shape'][0]) / 2) + (state['board_shape'][1] * 0.05)),
+                    'y': (state['board_shape'][0] / 2)}
 
 
 def estimate_path(current_state, after_time):
