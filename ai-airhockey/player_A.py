@@ -47,6 +47,7 @@ class Player:
         self.opponent_distances_from_goal = []
         self.opponent_shots_to_goal = 0
         self.puck_last_x = 0
+        self.puck_crossed = 0
 
     def next_move(self, current_state):
         """ Function that computes the next move of your paddle
@@ -90,24 +91,40 @@ class Player:
 
         higher_extreme = (current_state['board_shape'][0] / 2) + ((current_state['board_shape'][0] * current_state['goal_size']) / 2)
 
+        # Determine if the last shot was to the goal:
+        if self.my_goal == 'left':
+            if self.puck_last_x > current_state['puck_pos']['x'] and current_state['puck_pos']['y'] > lower_extreme and \
+                    current_state['puck_pos']['y'] < higher_extreme and current_state['puck_pos']['x'] < (current_state['board_shape'][1] / 4) and self.puck_crossed == 0:
+
+                self.opponent_shots_to_goal += 1  # Its a shot to our goal
+                self.puck_crossed = 1
+
+        else:
+            if self.puck_last_x < current_state['puck_pos']['x'] and current_state['puck_pos']['y'] > lower_extreme and \
+                    current_state['puck_pos']['y'] < higher_extreme and current_state['puck_pos']['x'] > ((current_state['board_shape'][1] / 4) * 3) and self.puck_crossed == 0:
+
+                self.opponent_shots_to_goal += 1  # Its a shot to our goal
+                self.puck_crossed = 1
+
+
         if self.my_goal == 'left':
            opponent_distance_from_goal = current_state['board_shape'][1] - self.my_opponent_pos['x']
 
-           if self.puck_last_x  > current_state['puck_pos']['x'] and current_state['puck_pos']['y'] > lower_extreme and current_state['puck_pos']['y'] < higher_extreme:
-               # Its a shot to our goal
+           if self.puck_last_x < current_state['puck_pos']['x'] and current_state['puck_pos']['x'] > (current_state['board_shape'][1] / 2):
+               self.puck_crossed = 0
 
-               self.opponent_shots_to_goal += 1
 
         else:
             opponent_distance_from_goal = self.my_opponent_pos['x']
 
-            if self.puck_last_x < current_state['puck_pos']['x'] and current_state['puck_pos']['y'] > lower_extreme and \
-                    current_state['puck_pos']['y'] < higher_extreme:
-                # Its a shot to our goal
-
-                self.opponent_shots_to_goal += 1
+            if self.puck_last_x > current_state['puck_pos']['x'] and current_state['puck_pos']['x'] < (
+                    current_state['board_shape'][1] / 2):
+                self.puck_crossed = 0
 
         self.opponent_distances_from_goal.append(opponent_distance_from_goal)
+
+        self.puck_last_x = current_state['puck_pos']['x']
+
 
         # print(path)
 
@@ -370,35 +387,52 @@ class Player:
 
         state = copy.copy(current_state)
 
+        losing = False
+
         #print(self.my_goal)
 
         if self.my_goal == 'left':
 
-            if state['is_goal_move'] != None and state['puck_pos']['x'] < (state['board_shape'][1] / 2):
+            if state['goals']['left'] < state['goals']['right']:
+                losing = True
+
+            if state['is_goal_move'] is not None and state['puck_pos']['x'] < (state['board_shape'][1] / 2):
 
                 print("Sacamos de nuestra cancha")
 
                 self.quick_off = 1
                 self.my_current_mode = 0
+
+            elif state['is_goal_move'] is not None and state['puck_pos']['x'] > (state['board_shape'][1] / 2):
+
+                self.my_current_mode = 1
+                self.quick_off = 0
 
             else:
                 self.quick_off = 0
 
         else:
 
-            if state['is_goal_move'] != None and state['puck_pos']['x'] > (state['board_shape'][1] / 2):
+            if state['goals']['left'] > state['goals']['right']:
+                losing = True
+
+            if state['is_goal_move'] is not None and state['puck_pos']['x'] > (state['board_shape'][1] / 2):
 
                 print("Sacamos de nuestra cancha")
 
                 self.quick_off = 1
                 self.my_current_mode = 0
 
+            elif state['is_goal_move'] is not None and state['puck_pos']['x'] < (state['board_shape'][1] / 2):
+
+                self.my_current_mode = 1
+                self.quick_off = 0
+
             else:
                 self.quick_off = 0
 
-
         # Protección anti-autogol:
-        if (self.my_goal == "left" and state['puck_pos']['x'] < (self.my_paddle_pos['x']) and self.my_current_mode != 1):
+        if self.my_goal == "left" and state['puck_pos']['x'] < (self.my_paddle_pos['x']) and self.my_current_mode != 1:
                 print("soy izquierdo y hay Riesgo de autogol")
                 self.my_current_mode = 2
         elif state['puck_pos']['x'] > (self.my_paddle_pos['x']) and self.my_current_mode != 1 and self.my_goal=="right":
@@ -406,47 +440,78 @@ class Player:
                 self.my_current_mode = 2
 
         # Update tactics:
-        if self.elapsed_game_tiks % 100 == 0:
-            sum = 0.0
+        if self.elapsed_game_tiks % 200 == 0:
+            distance_sum = 0.0
 
             for i in range(0, len(self.opponent_distances_from_goal)):
-                sum += self.opponent_distances_from_goal[i]
+                distance_sum += self.opponent_distances_from_goal[i]
 
-            average = sum / len(self.opponent_distances_from_goal)
+            average = distance_sum / len(self.opponent_distances_from_goal)
 
             print("The average is:")
             print(average)
-            #print("Number of elements:")
-            #print(len(self.opponent_distances_from_goal))
-            print(self.my_current_mode)
-
+            # print("Number of elements:")
+            # print(len(self.opponent_distances_from_goal))
+            # print(self.my_current_mode)
+            print("Shots to goal:")
             print(self.opponent_shots_to_goal)
 
-            self.opponent_distances_from_goal = []
-
-            if average > (state['board_shape'][1] / 5):
+            if average > (state['board_shape'][1] / 5) and self.opponent_shots_to_goal > 3:
                 print("The opponent is in an ofense position")
 
                 self.my_last_mode = self.my_current_mode
                 self.my_current_mode = 1
 
-            else:
-                print("The opponent is in a defense position")
+            elif average > (state['board_shape'][1] / 5) and self.opponent_shots_to_goal < 3:
+                print("The opponent is in a line position")
 
                 self.my_last_mode = self.my_current_mode
                 self.my_current_mode = 0
 
+            elif average < (state['board_shape'][1] / 5) and self.opponent_shots_to_goal > 3:
+                print("The opponent is in a defense position but aiming to goal")
 
-            
+                if losing:
+                    print("...but we are losing")
 
+                    self.my_last_mode = self.my_current_mode
+                    self.my_current_mode = 1
 
+                else:
+                    print("...but we are winning")
 
-    #Evade:
+                    self.my_last_mode = self.my_current_mode
+                    self.my_current_mode = 0
+
+            elif average < (state['board_shape'][1] / 5) and self.opponent_shots_to_goal < 3:
+                print("The opponent is in a defense position")
+
+                if losing:
+                    print("...but we are losing")
+
+                    self.my_last_mode = self.my_current_mode
+                    self.my_current_mode = 0
+
+                else:
+                    print("...but we are winning")
+
+                    self.my_last_mode = self.my_current_mode
+                    self.my_current_mode = 1
+
+            print("Decided mode:")
+            print(self.my_current_mode)
+
+            # Erase logs:
+            self.opponent_distances_from_goal = []
+            self.opponent_shots_to_goal = 0
+
+    # Evade:
     def evade(self, current_state):
 
         state = copy.copy(current_state)
 
         return self.my_paddle_pos
+
 
 def estimate_path(current_state, after_time):
     """ Function that function estimates the next moves in a after_time window
