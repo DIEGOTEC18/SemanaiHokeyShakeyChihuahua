@@ -35,7 +35,7 @@ class Player:
         self.goal_sideB = {}
 
         # AI Modes: Attack (0) Defend (1) Evade (2)
-        self.my_current_mode = 0
+        self.my_current_mode = 1
 
         self.elapsed_game_tiks = 0
 
@@ -294,7 +294,7 @@ class Player:
                 if state['puck_pos']['y'] > (state['board_shape'][0] / 2) and state['puck_pos']['y'] < \
                         self.my_opponent_pos[
                             'y']:
-                    print("soy izquierdo y estoy defendiendo arriba")
+                    # print("soy izquierdo y estoy defendiendo arriba")
                     # print("Es en el 2 if")
 
                     return {'x': rad, 'y': ofup}
@@ -302,7 +302,7 @@ class Player:
                 elif state['puck_pos']['y'] > (state['board_shape'][0] / 2) and state['puck_pos']['y'] > \
                         self.my_opponent_pos[
                             'y']:
-                    print("soy izquierda y estoy defendiendo arriba")
+                    # print("soy izquierda y estoy defendiendo arriba")
                     # print("Es en el 1 elif")
 
                     return {'x': rad, 'y': ofup}
@@ -310,7 +310,7 @@ class Player:
                 elif state['puck_pos']['y'] < (state['board_shape'][0] / 2) and state['puck_pos']['y'] < \
                         self.my_opponent_pos[
                             'y']:
-                    print("soy izquierda y estoy defendiendo abajo")
+                    # print("soy izquierda y estoy defendiendo abajo")
                     # print("Es en el 2 elif")
 
                     return {'x': rad, 'y': ofdown}
@@ -318,7 +318,7 @@ class Player:
                 elif state['puck_pos']['y'] < (state['board_shape'][0] / 2) and state['puck_pos']['y'] > \
                         self.my_opponent_pos[
                             'y']:
-                    print("soy izquierda y estoy defendiendo abajo")
+                    # print("soy izquierda y estoy defendiendo abajo")
                     # print("Es en el 3 elif")
 
                     return {'x': rad, 'y': ofdown}
@@ -330,7 +330,7 @@ class Player:
 
             else:
 
-                print("Está adelante el oponente")
+                # print("Está adelante el oponente")
                 return {'x': rad, 'y': state['board_shape'][0] / 2}
 
         if (self.my_goal == "right"):
@@ -339,7 +339,7 @@ class Player:
                 if state['puck_pos']['y'] > (state['board_shape'][0] / 2) and state['puck_pos']['y'] < \
                         self.my_opponent_pos[
                             'y']:
-                    print("soy derecha y estoy defendiendo arriba")
+                    # print("soy derecha y estoy defendiendo arriba")
                     # print("Es en el 2 if")
 
                     return {'x': rad, 'y': ofup}
@@ -347,7 +347,7 @@ class Player:
                 elif state['puck_pos']['y'] > (state['board_shape'][0] / 2) and state['puck_pos']['y'] > \
                         self.my_opponent_pos[
                             'y']:
-                    print("soy derecha y estoy defendiendo arriba")
+                    # print("soy derecha y estoy defendiendo arriba")
                     # print("Es en el 1 elif")
 
                     return {'x': state['board_shape'][0] - rad, 'y': ofup}
@@ -355,7 +355,7 @@ class Player:
                 elif state['puck_pos']['y'] < (state['board_shape'][0] / 2) and state['puck_pos']['y'] < \
                         self.my_opponent_pos[
                             'y']:
-                    print("soy derecha y estoy defendiendo abajo")
+                    # print("soy derecha y estoy defendiendo abajo")
                     # print("Es en el 2 elif")
 
                     return {'x': state['board_shape'][0] - rad, 'y': ofdown}
@@ -363,7 +363,7 @@ class Player:
                 elif state['puck_pos']['y'] < (state['board_shape'][0] / 2) and state['puck_pos']['y'] > \
                         self.my_opponent_pos[
                             'y']:
-                    print("soy derecha y estoy defendiendo abajo")
+                    # print("soy derecha y estoy defendiendo abajo")
                     # print("Es en el 3 elif")
 
                     return {'x': state['board_shape'][0] - rad, 'y': ofdown}
@@ -375,7 +375,7 @@ class Player:
 
             else:
 
-                print("Está adelante el oponente")
+                # print("Está adelante el oponente")
                 return {'x': state['board_shape'][0] - rad, 'y': state['board_shape'][0] / 2}
 
         # print(self.my_paddle_pos)
@@ -391,6 +391,10 @@ class Player:
 
         #print(self.my_goal)
 
+        if self.quick_off == 1:
+            self.my_current_mode = 1
+            self.quick_off = 0
+
         if self.my_goal == 'left':
 
             if state['goals']['left'] < state['goals']['right']:
@@ -400,11 +404,11 @@ class Player:
 
                 print("Sacamos de nuestra cancha")
 
-                self.quick_off = 1
                 self.my_current_mode = 0
+                self.quick_off = 1
 
             elif state['is_goal_move'] is not None and state['puck_pos']['x'] > (state['board_shape'][1] / 2):
-
+                print("Borrar posiblemente")
                 self.my_current_mode = 1
                 self.quick_off = 0
 
@@ -424,7 +428,7 @@ class Player:
                 self.my_current_mode = 0
 
             elif state['is_goal_move'] is not None and state['puck_pos']['x'] < (state['board_shape'][1] / 2):
-
+                print("NUNCA ENTRA AQUÍ")
                 self.my_current_mode = 1
                 self.quick_off = 0
 
@@ -440,7 +444,7 @@ class Player:
                 self.my_current_mode = 2
 
         # Update tactics:
-        if self.elapsed_game_tiks % 200 == 0:
+        if self.elapsed_game_tiks % 100 == 0:
             distance_sum = 0.0
 
             for i in range(0, len(self.opponent_distances_from_goal)):
@@ -490,13 +494,13 @@ class Player:
                     print("...but we are losing")
 
                     self.my_last_mode = self.my_current_mode
-                    self.my_current_mode = 0
+                    self.my_current_mode = 1
 
                 else:
                     print("...but we are winning")
 
                     self.my_last_mode = self.my_current_mode
-                    self.my_current_mode = 1
+                    self.my_current_mode = 0
 
             print("Decided mode:")
             print(self.my_current_mode)
